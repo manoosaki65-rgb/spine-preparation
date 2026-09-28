@@ -53,6 +53,48 @@ function item(row) {
   return { ...JSON.parse(row.data), sequence: row.sequence, updatedAt: row.updated_at };
 }
 __name(item, "item");
+const legacySeedRecords = [
+  {
+    sequence: "69-298",
+    contractNo: "586",
+    slash: "/",
+    fiscalYear: "2568",
+    contractDate: "14 ก.พ. 2568",
+    item: "จ้างเหมาบำรุงรักษาระบบน้ำบริสุทธิ์ อิออนเมด (ไม่มี heat disinfection) จำนวน 1 เครื่อง",
+    planBudget: "",
+    procurementAmount: "112,800.00",
+    contractor: "บริษัท อิออนเมด จำกัด",
+    guaranteeType: "เงินสดตามใบเสร็จรับเงินโรงพยาบาลอุตรดิตถ์",
+    guaranteeBranch: "",
+    guaranteeNo: "เล่มที่ 2213 เลขที่ 055",
+    guaranteeDate: "14 ก.พ. 2568",
+    guaranteeAmount: "5,640.00",
+    deliveryDue: "14 ก.พ. 2569",
+    deliveryActual: "13 ก.พ. 2569",
+    acceptanceDate: "13 ก.พ. 2569",
+    warrantyPeriod: "",
+    warrantyDay: "",
+    warrantyMonth: "",
+    warrantyYear: "",
+    guaranteeReturnDate: "",
+    procurementOfficer: "มนูศักดิ์ อยู่บาง",
+    department: "หน่วยงานไตเทียม",
+    fundSource: "",
+    status: "draft",
+    fileName: "ต 2568 - 586.pdf",
+    sourceNote: "ย้ายจากระบบรับสัญญาเดิม",
+    folderCount: 1
+  }
+];
+async function ensureLegacySeed(env) {
+  for (const data of legacySeedRecords) {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO contract_spine_records(sequence,data) VALUES (?,?)"
+    ).bind(data.sequence, JSON.stringify(data)).run();
+  }
+}
+__name(ensureLegacySeed, "ensureLegacySeed");
+
 async function limitedBody(req, limit) {
   if (Number(req.headers.get("content-length")) > limit) fail(413, "\u0E44\u0E1F\u0E25\u0E4C\u0E2B\u0E23\u0E37\u0E2D\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E0D\u0E48\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14");
   const reader = req.body?.getReader();
@@ -99,7 +141,7 @@ async function records(req, env, url) {
   if (req.method === "GET") {
     const offset = Number(url.searchParams.get("offset") || 0);
     if (!Number.isSafeInteger(offset) || offset < 0) fail(400, "invalid-offset");
-    const { results } = await env.DB.prepare("SELECT sequence,data,updated_at FROM contract_spine_records ORDER BY sequence LIMIT 501 OFFSET ?").bind(offset).all();
+    await ensureLegacySeed(env);\n    const { results } = await env.DB.prepare("SELECT sequence,data,updated_at FROM contract_spine_records ORDER BY updated_at DESC, sequence DESC LIMIT 501 OFFSET ?").bind(offset).all();
     return json({ items: results.slice(0, 500).map(item), nextOffset: results.length > 500 ? offset + 500 : null });
   }
   if (req.method !== "POST") return json({ error: "method-not-allowed" }, 405);
@@ -178,7 +220,7 @@ var worker_default = {
         if (origin && origin !== url.origin || req.headers.get("sec-fetch-site") === "cross-site") fail(403, "cross-origin-write-denied");
       }
       if (url.pathname === "/api/health" && req.method === "GET") {
-        const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM contract_spine_records").first();
+        await ensureLegacySeed(env);\n        const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM contract_spine_records").first();
         return json({ ok: true, worker: "spine-preparation", db: "uttaradit-spine-db", records: Number(row?.count || 0), pdfStorageEnabled: pdfStorageEnabled(env), driveBridgeEnabled: env.DRIVE_BRIDGE_ENABLED === "true" });
       }
       if (url.pathname === "/api/spine-records") return await records(req, env, url);

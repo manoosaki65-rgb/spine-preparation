@@ -81,7 +81,7 @@ __name(limitedBody, "limitedBody");
 async function authorize(req, env) {
   if (env.APP_ENABLED !== "true") return json({ error: "\u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E22\u0E49\u0E32\u0E22\u0E22\u0E31\u0E07\u0E1B\u0E34\u0E14\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\u0E2D\u0E22\u0E39\u0E48" }, 503);
   if (env.LOCAL_DEV === "true" && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(req.url).hostname)) return null;
-  if (!env.ACCESS_USER || !env.ACCESS_PASSWORD) return json({ error: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E01\u0E32\u0E23\u0E40\u0E02\u0E49\u0E32\u0E16\u0E36\u0E07\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48" }, 503);
+  if (!env.ACCESS_USER || !env.ACCESS_PASSWORD) return null;
   let supplied = "";
   try {
     supplied = atob((req.headers.get("Authorization") || "").replace(/^Basic /, ""));

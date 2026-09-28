@@ -177,6 +177,10 @@ var worker_default = {
         const origin = req.headers.get("origin");
         if (origin && origin !== url.origin || req.headers.get("sec-fetch-site") === "cross-site") fail(403, "cross-origin-write-denied");
       }
+      if (url.pathname === "/api/health" && req.method === "GET") {
+        const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM contract_spine_records").first();
+        return json({ ok: true, worker: "spine-preparation", db: "uttaradit-spine-db", records: Number(row?.count || 0), pdfStorageEnabled: pdfStorageEnabled(env), driveBridgeEnabled: env.DRIVE_BRIDGE_ENABLED === "true" });
+      }
       if (url.pathname === "/api/spine-records") return await records(req, env, url);
       if (url.pathname === "/api/features" && req.method === "GET") return json({ pdfStorageEnabled: pdfStorageEnabled(env) });
       if (url.pathname === "/api/spine-documents") return await documents(req, env, url);

@@ -4,6 +4,19 @@
   "compatibility_date": "2026-09-01",
   "no_bundle": true,
   "keep_vars": true,
+  "vars": {
+    "APP_ENABLED": "true",
+    "DRIVE_BRIDGE_ENABLED": "false",
+    "LOCAL_DEV": "false",
+    "PDF_STORAGE_ENABLED": "false"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "uttaradit-spine-db",
+      "database_id": "59e9675f-8a7e-44e4-b878-0b8c1898781c"
+    }
+  ],
   "unsafe": {
     "metadata": {
       "keep_assets": true,

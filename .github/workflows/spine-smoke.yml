@@ -1,0 +1,35 @@
+name: Spine Cloudflare smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Cloudflare Auto Deploy and verify D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH="https://spine-preparation.manoosaki65.workers.dev/api/health"
+          for i in $(seq 1 24); do
+            body="$(curl -fsS --max-time 15 "$HEALTH" || true)"
+            echo "Attempt $i: $body"
+            if echo "$body" | grep -q '"ok":true' && echo "$body" | grep -Eq '"records":[1-9][0-9]*'; then
+              break
+            fi
+            if [ "$i" -eq 24 ]; then
+              echo "Cloudflare deployment or D1 verification did not become healthy in time."
+              exit 1
+            fi
+            sleep 15
+          done
+      - name: Verify spine page
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -L -sS -o /tmp/spine.html -w '%{http_code}' --max-time 20 https://spine-preparation.manoosaki65.workers.dev/spine/)"
+          test "$code" = "200"
+          grep -q '<html' /tmp/spine.html

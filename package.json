@@ -1,0 +1,13 @@
+{
+  "name": "spine-preparation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/worker.js",
+    "deploy": "wrangler deploy --keep-vars"
+  },
+  "devDependencies": {
+    "wrangler": "4.141.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "spine-preparation",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-01",
+  "no_bundle": true,
+  "keep_vars": true,
+  "unsafe": {
+    "metadata": {
+      "keep_assets": true,
+      "keep_bindings": ["assets", "d1", "plain_text", "json", "secret_text", "secret_key"]
+    }
+  }
+}

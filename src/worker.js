@@ -158,7 +158,7 @@ async function drive(req, env, url) {
   const target = new URL(env.DRIVE_BRIDGE_URL);
   if (target.protocol !== "https:") fail(503, "invalid-bridge-configuration");
   target.searchParams.set("contract", contract);
-  const response = await fetch(target, { headers: { accept: "application/json" }, redirect: "error", signal: AbortSignal.timeout(15e3) });
+  const response = await fetch(target, { headers: { accept: "application/json" }, redirect: "follow", signal: AbortSignal.timeout(15e3) });
   let data;
   try {
     data = await response.json();
@@ -168,6 +168,39 @@ async function drive(req, env, url) {
   return json(data, response.status);
 }
 __name(drive, "drive");
+
+async function driveSync(req, env) {
+  if (req.method !== "POST") return json({ error: "method-not-allowed" }, 405);
+  if (env.DRIVE_BRIDGE_ENABLED !== "true" || !env.DRIVE_BRIDGE_URL) return json({ ok: false, error: "drive-bridge-disabled" }, 503);
+  const token = (req.headers.get("x-bridge-token") || "").trim();
+  if (!token) fail(401, "missing-bridge-token");
+  let body;
+  try {
+    body = JSON.parse(new TextDecoder().decode(await limitedBody(req, 128 * 1024)));
+  } catch (e) {
+    if (e.status) throw e;
+    fail(400, "invalid-json");
+  }
+  const target = new URL(env.DRIVE_BRIDGE_URL);
+  if (target.protocol !== "https:") fail(503, "invalid-bridge-configuration");
+  target.searchParams.set("token", token);
+  const response = await fetch(target, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(body),
+    redirect: "follow",
+    signal: AbortSignal.timeout(55e3)
+  });
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    fail(502, "invalid-upstream-response");
+  }
+  return json(data, response.status);
+}
+__name(driveSync, "driveSync");
+
 var worker_default = {
   async fetch(req, env) {
     try {
@@ -185,7 +218,7 @@ var worker_default = {
       if (url.pathname === "/api/spine-records") return await records(req, env, url);
       if (url.pathname === "/api/features" && req.method === "GET") return json({ pdfStorageEnabled: pdfStorageEnabled(env) });
       if (url.pathname === "/api/spine-documents") return await documents(req, env, url);
-      if (url.pathname === "/api/drive-contract") return await drive(req, env, url);
+      if (url.pathname === "/api/drive-contract") return await drive(req, env, url);\n      if (url.pathname === "/api/drive-sync") return await driveSync(req, env);
       if (url.pathname.startsWith("/api/")) fail(404, "not-found");
       if (!["GET", "HEAD"].includes(req.method)) return json({ error: "method-not-allowed" }, 405);
       if (url.pathname === "/") return Response.redirect(url.origin + "/spine/", 302);

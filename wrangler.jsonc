@@ -6,7 +6,7 @@
   "keep_vars": true,
   "vars": {
     "APP_ENABLED": "true",
-    "DRIVE_BRIDGE_ENABLED": "false",
+    "DRIVE_BRIDGE_ENABLED": "true",\n    "DRIVE_BRIDGE_URL": "https://script.google.com/macros/s/AKfycbxDtSbLQQqTLVREcL4qOjILTvL1tOL3qtiTN5g3OVYnc7NWsqpMPRUlcrKytrAUJ_3WdQ/exec",
     "LOCAL_DEV": "false",
     "PDF_STORAGE_ENABLED": "false"
   },

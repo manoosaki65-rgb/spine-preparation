@@ -112,28 +112,9 @@ async function records(req, env, url) {
     if (e.status) throw e;
     fail(400, "invalid-json");
   }
-  // Master Excel is the source of truth. Write there first, then mirror the confirmed record to D1.
-  let masterSync = null;
-  if (env.DRIVE_BRIDGE_ENABLED === "true" && env.DRIVE_BRIDGE_URL && env.DRIVE_BRIDGE_TOKEN) {
-    const target = new URL(env.DRIVE_BRIDGE_URL);
-    if (target.protocol !== "https:") fail(503, "invalid-bridge-configuration");
-    target.searchParams.set("token", env.DRIVE_BRIDGE_TOKEN);
-    const upstream = await fetch(target, {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(body),
-      redirect: "follow",
-      signal: AbortSignal.timeout(55e3)
-    });
-    try { masterSync = await upstream.json(); } catch { fail(502, "invalid-master-response"); }
-    if (!upstream.ok || masterSync?.ok !== true) fail(502, masterSync?.error || "master-sync-failed");
-    if (masterSync.sequence) body.sequence = String(masterSync.sequence);
-  } else {
-    fail(503, "master-sync-not-configured");
-  }
   const data = clean(body);
   const row = await env.DB.prepare("INSERT INTO contract_spine_records(sequence,data) VALUES (?,?) ON CONFLICT(sequence) DO UPDATE SET data=excluded.data,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING sequence,data,updated_at").bind(data.sequence, JSON.stringify(data)).first();
-  return json({ item: item(row), masterSync: true, master: masterSync });
+  return json({ item: item(row) });
 }
 __name(records, "records");
 async function documents(req, env, url) {

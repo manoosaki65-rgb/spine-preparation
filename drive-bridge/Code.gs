@@ -44,52 +44,49 @@ function doPost(e) {
 }
 
 function normalize_(input) {
-  const keys = ['sequence','contractNo','fiscalYear','contractDate','item','planBudget','procurementAmount','contractor','guaranteeType','guaranteeBranch','guaranteeNo','guaranteeDate','guaranteeAmount','deliveryDue','deliveryActual','acceptanceDate','warrantyPeriod','warrantyDay','warrantyMonth','warrantyYear','guaranteeReturnDate','procurementOfficer','department','fundSource','status','sourceNote'];
-  const out = {};
-  keys.forEach(k => out[k] = String(input[k] || '').trim());
-  out.slash = '/';
-  return out;
+  return {
+    sequence: String(input.sequence || '').trim(),
+    contractNo: String(input.contractNo || '').trim(),
+    slash: '/',
+    fiscalYear: String(input.fiscalYear || '').trim(),
+    contractDate: String(input.contractDate || '').trim(),
+    item: String(input.item || '').trim(),
+    acceptanceDate: String(input.acceptanceDate || '').trim()
+  };
 }
 
 function updateAcceptance_(ss, record) {
-  // Master columns E:AB = contract no, [F unused], fiscal year, contract date, item,
-  // plan budget, procurement amount, contractor, guarantee details, delivery/acceptance,
-  // warranty, return date, officer, department, fund source.
-  const map = {
-    contractNo:5, fiscalYear:7, contractDate:8, item:9, planBudget:10,
-    procurementAmount:11, contractor:12, guaranteeType:13, guaranteeBranch:14,
-    guaranteeNo:15, guaranteeDate:16, guaranteeAmount:17, deliveryDue:18,
-    deliveryActual:19, acceptanceDate:20, warrantyPeriod:21, warrantyDay:22,
-    warrantyMonth:23, warrantyYear:24, guaranteeReturnDate:25,
-    procurementOfficer:26, department:27, fundSource:28
-  };
   for (const sheetName of CONTRACT_SHEETS) {
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) continue;
     const lastRow = Math.max(sheet.getLastRow(), 10);
-    const values = sheet.getRange(1, 1, lastRow, 28).getDisplayValues();
+    const values = sheet.getRange(1, 1, lastRow, 27).getDisplayValues();
     for (let i = 9; i < values.length; i++) {
       const contractNo = String(values[i][4] || '').trim();
       const fiscalYear = String(values[i][6] || '').trim();
       if (contractNo === record.contractNo && fiscalYear === record.fiscalYear) {
         const row = i + 1;
-        const changed = [];
-        Object.keys(map).forEach(function(key) {
-          const value = String(record[key] || '').trim();
-          if (!value || key === 'contractNo' || key === 'fiscalYear') return;
-          const col = map[key];
-          const existing = String(values[i][col - 1] || '').trim();
-          if (existing !== value) {
-            sheet.getRange(row, col).setValue(value);
-            changed.push(key);
-          }
-        });
-        SpreadsheetApp.flush();
-        return { found: true, sheet: sheetName, row: row, updatedFields: changed };
+        const existing = String(values[i][19] || '').trim();
+        if (record.acceptanceDate && !existing) {
+          sheet.getRange(row, 20).setValue(record.acceptanceDate);
+          SpreadsheetApp.flush();
+          return { found: true, sheet: sheetName, row: row, acceptanceUpdated: true };
+        }
+        if (record.acceptanceDate && existing && existing !== record.acceptanceDate) {
+          return {
+            found: true,
+            sheet: sheetName,
+            row: row,
+            acceptanceUpdated: false,
+            conflict: true,
+            existingAcceptanceDate: existing
+          };
+        }
+        return { found: true, sheet: sheetName, row: row, acceptanceUpdated: false };
       }
     }
   }
-  return { found: false, updatedFields: [] };
+  return { found: false, acceptanceUpdated: false };
 }
 
 function upsertControl_(ss, record) {

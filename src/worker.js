@@ -114,9 +114,20 @@ async function records(req, env, url) {
   }
   const data = clean(body);
   const row = await env.DB.prepare("INSERT INTO contract_spine_records(sequence,data) VALUES (?,?) ON CONFLICT(sequence) DO UPDATE SET data=excluded.data,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING sequence,data,updated_at").bind(data.sequence, JSON.stringify(data)).first();
-  return json({ item: item(row) });
+  const sync = await syncMaster(data, env);
+  return json({ item: item(row), master_sync: sync.ok === true, master: sync });
 }
 __name(records, "records");
+async function syncMaster(data, env) {
+  if (env.DRIVE_BRIDGE_ENABLED !== "true" || !env.DRIVE_BRIDGE_URL || !env.DRIVE_BRIDGE_TOKEN) return { ok: false, skipped: true };
+  const target = new URL(env.DRIVE_BRIDGE_URL);
+  target.searchParams.set("token", env.DRIVE_BRIDGE_TOKEN);
+  const response = await fetch(target, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data), redirect: "follow" });
+  let result;
+  try { result = await response.json(); } catch { return { ok: false, error: "invalid-master-response" }; }
+  return response.ok ? result : { ok: false, error: result.error || "master-sync-failed" };
+}
+__name(syncMaster, "syncMaster");
 async function documents(req, env, url) {
   if (!pdfStorageEnabled(env)) {
     const body = { enabled: false, code: "pdf-storage-disabled", message: "\u0E1B\u0E34\u0E14\u0E01\u0E32\u0E23\u0E41\u0E19\u0E1A\u0E41\u0E25\u0E30\u0E40\u0E1B\u0E34\u0E14 PDF \u0E0A\u0E31\u0E48\u0E27\u0E04\u0E23\u0E32\u0E27 \u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E41\u0E25\u0E30\u0E01\u0E32\u0E23\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E2A\u0E31\u0E19\u0E41\u0E1F\u0E49\u0E21\u0E22\u0E31\u0E07\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19\u0E44\u0E14\u0E49\u0E15\u0E32\u0E21\u0E1B\u0E01\u0E15\u0E34", items: [] };

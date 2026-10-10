@@ -238,7 +238,8 @@ var worker_default = {
       if (url.pathname === "/api/spine-records") return await records(req, env, url);
       if (url.pathname === "/api/features" && req.method === "GET") return json({ pdfStorageEnabled: pdfStorageEnabled(env) });
       if (url.pathname === "/api/spine-documents") return await documents(req, env, url);
-      if (url.pathname === "/api/drive-contract") return await drive(req, env, url);\n      if (url.pathname === "/api/drive-sync") return await driveSync(req, env);
+      if (url.pathname === "/api/drive-contract") return await drive(req, env, url);
+      if (url.pathname === "/api/drive-sync") return await driveSync(req, env);
       if (url.pathname.startsWith("/api/")) fail(404, "not-found");
       if (!["GET", "HEAD"].includes(req.method)) return json({ error: "method-not-allowed" }, 405);
       if (url.pathname === "/") return Response.redirect(url.origin + "/spine/", 302);

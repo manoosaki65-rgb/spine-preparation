@@ -149,6 +149,19 @@ export async function planMaster(zip,data,previous) {
   return {path:selected.path,sheet:selected.sheet,row:selected.row.number,inserted,changed,xml:selected.xml.replace(selected.row.xml,rowXml)};
 }
 function base64url(bytes) { let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+export function bridgePatchParts(packaged,zip) {
+  const parts=[];
+  for(const chunk of packaged.chunks) {
+    if(chunk.buffer===zip.bytes.buffer) {
+      const offset=chunk.byteOffset-zip.bytes.byteOffset,previous=parts.at(-1);
+      if(previous?.offset!==undefined && previous.offset+previous.length===offset) previous.length+=chunk.length;
+      else parts.push({offset,length:chunk.length});
+    } else {
+      const data=base64url(chunk).replace(/-/g,'+').replace(/_/g,'/');parts.push({data:data.padEnd(Math.ceil(data.length/4)*4,'=')});
+    }
+  }
+  return parts;
+}
 let cachedToken;
 export async function googleToken(env) {
   if(cachedToken && cachedToken.expires>Date.now()+60000) return cachedToken.value;
@@ -190,12 +203,25 @@ export async function writeMaster(env,data,previous) {
     if(position===chunk.length){index++;position=0;}
   }});
   let uploadBody=body;
-  if(typeof FixedLengthStream!=='undefined') {
+  if(typeof FixedLengthStream!=='undefined' && env.MASTER_WRITEBACK_TRANSPORT!=='apps-script') {
     const fixed=new FixedLengthStream(packaged.length);body.pipeTo(fixed.writable).catch(()=>{});uploadBody=fixed.readable;
   }
-  const uploaded=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+MASTER_ID+'?uploadType=media&fields=id,version',{method:'PATCH',headers:{...headers,'Content-Type':XLSX,'Content-Length':String(packaged.length),...(current.etag?{'If-Match':current.etag}:{})},body:uploadBody,duplex:'half',signal:AbortSignal.timeout(120000)});
-  if(!uploaded.ok) error('master-upload-failed');
-  const saved=await uploaded.json();
+  let saved;
+  if(env.MASTER_WRITEBACK_TRANSPORT==='apps-script') {
+    if(env.DRIVE_BRIDGE_ENABLED!=='true'||!env.DRIVE_BRIDGE_URL||!env.DRIVE_BRIDGE_TOKEN) error('master-bridge-not-configured',503);
+    const target=new URL(env.DRIVE_BRIDGE_URL);if(target.protocol!=='https:'||target.hostname!=='script.google.com') error('invalid-bridge-url',503);
+    target.searchParams.set('token',env.DRIVE_BRIDGE_TOKEN);
+    const parts=bridgePatchParts(packaged,zip);
+    const uploaded=await fetch(target,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'masterZipPatchV1',fileId:MASTER_ID,version:before.version,length:packaged.length,parts}),redirect:'follow',signal:AbortSignal.timeout(290000)});
+    try{saved=await uploaded.json();}catch{error('invalid-bridge-response');}
+    if(!uploaded.ok||saved.ok!==true||saved.fileId!==MASTER_ID||saved.writer!=='masterZipPatchV1') {
+      const safeCode=/^(unauthorized|master-busy|invalid-patch-plan|master-version-or-file-mismatch|patch-too-large|invalid-source-range|invalid-output-length|invalid-upload-session|source-range-read-failed|source-range-length-mismatch|master-changed-during-upload|uploaded-file-mismatch|drive-request-failed-\d{3}|upload-(chunk|final)-rejected-\d{3})$/.test(saved.error||'')?saved.error:'write-failed';
+      error('master-bridge-'+safeCode);
+    }
+  } else {
+    const uploaded=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+MASTER_ID+'?uploadType=media&fields=id,version',{method:'PATCH',headers:{...headers,'Content-Type':XLSX,'Content-Length':String(packaged.length),...(current.etag?{'If-Match':current.etag}:{})},body:uploadBody,duplex:'half',signal:AbortSignal.timeout(120000)});
+    if(!uploaded.ok) error('master-upload-failed');saved=await uploaded.json();
+  }
   // Confirm changed cells from Drive, rather than treating upload acceptance as verification.
   const expectedLength=packaged.changedParts.reduce((n,p)=>n+p.length,0);
   const check=await fetch('https://www.googleapis.com/drive/v3/files/'+MASTER_ID+'?alt=media',{headers:{...headers,Range:'bytes='+packaged.changedOffset+'-'+(packaged.changedOffset+expectedLength-1)},signal:AbortSignal.timeout(30000)});
@@ -204,5 +230,5 @@ export async function writeMaster(env,data,previous) {
   let verifiedOffset=0;
   if(verified.length!==expectedLength) error('master-readback-mismatch');
   for(const part of packaged.changedParts) for(const byte of part) if(verified[verifiedOffset++]!==byte) error('master-readback-mismatch');
-  return {ok:true,fileId:MASTER_ID,sheet:plan.sheet,row:plan.row,inserted:plan.inserted,changed:plan.changed.map(c=>c.cell),version:saved.version,verified:true};
+  return {ok:true,fileId:MASTER_ID,sheet:plan.sheet,row:plan.row,inserted:plan.inserted,changed:plan.changed.map(c=>c.cell),version:saved.version,verified:true,transport:env.MASTER_WRITEBACK_TRANSPORT==='apps-script'?'apps-script':'service-account'};
 }

@@ -3,11 +3,11 @@ const CONTROL_FILE_ID = '1aH-ltPs_WPZnjkH1HKMTHReSRgjYSCMz';
 const CONTRACT_SHEETS = ['69', '69 รพ.อต.'];
 const CONTROL_SHEET = 'รายการ68 - 69';
 
-function doGet() {
+function doGetLegacy() {
   return json_({ ok: true, service: 'uttaradit-spine-drive-bridge' });
 }
 
-function doPost(e) {
+function doPostLegacy(e) {
   try {
     const expectedToken = PropertiesService.getScriptProperties().getProperty('BRIDGE_TOKEN') || '';
     const suppliedToken = String(e && e.parameter && e.parameter.token || '');

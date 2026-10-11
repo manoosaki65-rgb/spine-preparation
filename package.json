@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/worker.js",
+    "check": "node --check src/worker.js && node --check src/master-writeback.js",
     "deploy": "wrangler deploy --keep-vars"
   },
   "devDependencies": {

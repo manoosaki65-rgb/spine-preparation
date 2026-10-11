@@ -1,6 +1,9 @@
 node_modules/
 .wrangler/
 .env*
+.local/
 .dev.vars*
 verification/
 *.log
+*service-account*.json
+tula-contract-guarantee-2570*.json

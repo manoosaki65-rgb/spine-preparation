@@ -2,10 +2,11 @@
   "name": "spine-preparation",
   "main": "src/worker.js",
   "compatibility_date": "2026-09-01",
-  "no_bundle": true,
+  "no_bundle": false,
   "keep_vars": true,
   "vars": {
     "APP_ENABLED": "true",
+    "MASTER_WRITEBACK_ENABLED": "true",
     "DRIVE_BRIDGE_ENABLED": "true",
     "DRIVE_BRIDGE_URL": "https://script.google.com/macros/s/AKfycbxDtSbLQQqTLVREcL4qOjILTvL1tOL3qtiTN5g3OVYnc7NWsqpMPRUlcrKytrAUJ_3WdQ/exec",
     "LOCAL_DEV": "false",
@@ -21,6 +22,7 @@
   "unsafe": {
     "metadata": {
       "keep_assets": true,
+      "assets": { "config": { "run_worker_first": ["/api/*", "/spine/", "/spine/app.js"] } },
       "keep_bindings": ["assets", "d1", "plain_text", "json", "secret_text", "secret_key"]
     }
   }
